@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "ContextFlow //",
+  "name": "ContextFlow",
   "version": "1.0.0",
   "description": "Seamless context portability between AI assistants. Local-first, secure, and beautiful.",
   "permissions": [

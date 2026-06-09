@@ -1,4 +1,4 @@
-# ContextFlow //
+# ContextFlow
 
 Seamless context portability between AI assistants. Local-first, secure, and beautiful.
 
