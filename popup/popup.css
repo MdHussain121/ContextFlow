@@ -1,0 +1,361 @@
+/* ContextFlow Neo-Brutalist stylesheet */
+
+:root {
+  --bg-color: #F8F6F1;
+  --primary-color: #000000;
+  --success-color: #7ED957;
+  --warning-color: #FFD54A;
+  --danger-color: #FF6B6B;
+  
+  --border-thick: 4px solid #000000;
+  --border-thin: 2px solid #000000;
+  
+  --shadow-thick: 6px 6px 0px #000000;
+  --shadow-thin: 4px 4px 0px #000000;
+  --shadow-btn-hover: 2px 2px 0px #000000;
+  
+  --font-heading: 'Space Grotesk', sans-serif;
+  --font-label: 'IBM Plex Mono', monospace;
+  --font-body: 'Inter', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--primary-color);
+  font-family: var(--font-body);
+  width: 380px;
+  overflow-x: hidden;
+  padding: 16px;
+}
+
+.popup-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Header & Logo */
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.logo {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 24px;
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+}
+
+.lightning {
+  display: inline-block;
+  animation: flash 1.5s infinite alternate;
+}
+
+@keyframes flash {
+  0% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 0px transparent); }
+  100% { transform: scale(1.1) rotate(5deg); filter: drop-shadow(0 0 4px var(--warning-color)); }
+}
+
+.active-tab-indicator {
+  font-family: var(--font-label);
+  font-size: 13px;
+  color: var(--primary-color);
+}
+
+.globe {
+  font-size: 12px;
+}
+
+/* Box & Sections (Neo-Brutalist Cards) */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-title {
+  font-family: var(--font-label);
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.box-header {
+  border: var(--border-thick);
+  border-bottom: none;
+  background-color: var(--primary-color);
+  color: var(--bg-color);
+  padding: 6px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.box-title {
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.box-body {
+  border: var(--border-thick);
+  background-color: #FFFFFF;
+  padding: 12px;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  box-shadow: var(--shadow-thick);
+}
+
+/* Status Panel */
+.status-box .box-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-dot-outer {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #9c9c9c;
+  transition: background-color 0.3s;
+}
+
+.status-dot.hydrated {
+  background-color: var(--success-color);
+  box-shadow: 0 0 8px var(--success-color);
+}
+
+.status-dot.warning {
+  background-color: var(--warning-color);
+}
+
+.buffer-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-indicator-text {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.2px;
+}
+
+.wireless-symbol {
+  font-family: var(--font-label);
+  font-size: 14px;
+}
+
+.stats-text {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: #555555;
+}
+
+/* Retro Pixelated Progress Bar */
+.progress-bar-container {
+  height: 24px;
+  border: var(--border-thin);
+  background-color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--success-color),
+    var(--success-color) 6px,
+    #FFFFFF 6px,
+    #FFFFFF 8px
+  );
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-percentage {
+  position: absolute;
+  right: 8px;
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-color);
+  background-color: rgba(255, 255, 255, 0.85);
+  padding: 0 4px;
+}
+
+/* Sync Actions 2x2 Grid */
+.sync-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.sync-card {
+  border: var(--border-thin);
+  border-radius: 8px;
+  background-color: #FFFFFF;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: var(--shadow-thin);
+  transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  font-family: var(--font-label);
+  font-size: 11px;
+  text-transform: uppercase;
+  min-height: 52px;
+  user-select: none;
+}
+
+.sync-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-thick);
+}
+
+.sync-card:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-btn-hover);
+}
+
+.sync-card.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+  background-color: #f1f1f1;
+}
+
+.sync-card-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sync-card-text {
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* Hydrate Action Button */
+.hydrate-btn {
+  border: var(--border-thick);
+  border-radius: 8px;
+  background-color: var(--success-color);
+  color: var(--primary-color);
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 16px;
+  padding: 12px;
+  cursor: pointer;
+  box-shadow: var(--shadow-thick);
+  transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.hydrate-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 6px 8px 0px #000000;
+}
+
+.hydrate-btn:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+.hydrate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: var(--shadow-thin);
+}
+
+/* Options Box */
+.options-box .box-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.option-item input[type="checkbox"] {
+  display: none;
+}
+
+.custom-checkbox {
+  width: 20px;
+  height: 20px;
+  border: var(--border-thin);
+  border-radius: 4px;
+  background-color: #FFFFFF;
+  position: relative;
+  transition: background-color 0.1s;
+}
+
+.option-item:hover .custom-checkbox {
+  background-color: #f6f6f6;
+  transform: scale(1.05);
+}
+
+.option-item input[type="checkbox"]:checked + .custom-checkbox {
+  background-color: var(--success-color);
+}
+
+.option-item input[type="checkbox"]:checked + .custom-checkbox::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid #000000;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
+}
+
+.option-label-text {
+  font-family: var(--font-body);
+  font-size: 13px;
+}

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ContextFlow //</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600&family=Inter:wght@400;500&family=Space+Grotesk:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    
+    <!-- Header Logo -->
+    <header class="header">
+      <div class="logo">
+        <span class="lightning">⚡</span> ContextFlow //
+      </div>
+      <div class="active-tab-indicator">
+        [ <span class="globe">🌐</span> active_tab: <span id="active-tab-domain">detecting...</span> ]
+      </div>
+    </header>
+
+    <!-- Matrix Environment Status -->
+    <section class="section status-box">
+      <div class="box-header">
+        <span class="box-title">MATRIX ENVIRONMENT STATUS</span>
+        <span class="status-dot-outer"><span class="status-dot" id="status-dot"></span></span>
+      </div>
+      <div class="box-body">
+        <div class="buffer-status">
+          <span class="status-indicator-text" id="buffer-status-text">NO BUFFER</span>
+          <span class="wireless-symbol">((•))</span>
+        </div>
+        <div class="stats-text" id="stats-text">
+          Turns: 0 Messages | Tokens: ~0
+        </div>
+        <!-- Pixelated Retro Progress Bar -->
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" id="progress-fill" style="width: 0%;"></div>
+          <span class="progress-percentage" id="progress-percentage">0%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sync Actions -->
+    <section class="section">
+      <div class="section-title">⚡ SYNC ACTIONS</div>
+      <div class="sync-grid" id="sync-grid">
+        <!-- Target Chatbot Cards will be rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- Hydrate Target Input Success Button -->
+    <button class="hydrate-btn" id="hydrate-btn" disabled>
+      <span class="rocket">🚀</span> HYDRATE TARGET INPUT
+    </button>
+
+    <!-- Options Box -->
+    <section class="section options-box">
+      <div class="box-header">
+        <span class="box-title">⚙️ OPTIONS</span>
+      </div>
+      <div class="box-body">
+
+        <label class="option-item">
+          <input type="checkbox" id="opt-system" checked>
+          <span class="custom-checkbox"></span>
+          <span class="option-label-text">Include system instructions</span>
+        </label>
+        <label class="option-item">
+          <input type="checkbox" id="opt-reuse" checked>
+          <span class="custom-checkbox"></span>
+          <span class="option-label-text">Reuse chatbot tabs</span>
+        </label>
+      </div>
+    </section>
+
+  </div>
+  <script src="../modules/compression.js"></script>
+  <script src="../modules/hydration.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
