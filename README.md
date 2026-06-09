@@ -42,6 +42,7 @@ Seamless context portability between AI assistants. Local-first, secure, and bea
 │   ├── popup.js          # Main UI controller
 │   ├── popup.css         # UI Styling
 │   └── mock_chat.html    # Sandbox environment for local testing
+├── test/                 # Test suites for extension logic
 └── icons/                # Extension action icons
 ```
 
