@@ -53,6 +53,10 @@
         if (injected) {
           clearPendingInjection(domain); // Clear from storage ONLY after successful injection
           showToast('⚡ Context Hydrated Successfully!', '#7ED957');
+          // Clear clipboard for security
+          try {
+            navigator.clipboard.writeText('').catch(() => {});
+          } catch (e) { /* Clipboard API may not be available */ }
         } else {
           showToast('Clipboard fallback activated! Paste manually (Ctrl+V)', '#FFD54A');
         }
@@ -108,8 +112,8 @@
     if (!fallback) {
       // Deep traversal to find any visible contenteditable or textarea
       let found = null;
-      function traverse(node) {
-        if (found) return;
+      function traverse(node, depth) {
+        if (found || depth > 20) return;  // Max 20 levels deep
         if (!node) return;
         if (node.nodeType === Node.ELEMENT_NODE) {
           if ((node.getAttribute('contenteditable') === 'true' && node.getAttribute('role') === 'combobox') ||
@@ -119,16 +123,16 @@
           }
         }
         if (node.shadowRoot) {
-          traverse(node.shadowRoot);
+          traverse(node.shadowRoot, depth + 1);
         }
         const children = node.childNodes;
         if (children) {
           for (let i = 0; i < children.length; i++) {
-            traverse(children[i]);
+            traverse(children[i], depth + 1);
           }
         }
       }
-      traverse(document);
+      traverse(document, 0);
       return found;
     }
     return fallback;
@@ -162,8 +166,10 @@
 
     if (isContentEditable) {
       try {
-        // Clear existing text first if any
-        element.innerHTML = '';
+        // Only clear existing content if we have text to inject
+        if (text && text.length > 0) {
+          element.innerHTML = '';
+        }
         
         // Setup text selection for document.execCommand
         const selection = window.getSelection();
@@ -180,7 +186,8 @@
           inputType: 'insertText'
         }));
         
-        // Execute insertion
+        // Note: execCommand('insertText') is deprecated but still widely supported.
+        // Fallback to direct textNode insertion if it fails.
         const execSuccess = document.execCommand('insertText', false, text);
         console.log(`[ContextFlow Inject] execCommand result: ${execSuccess}, current innerText length: ${element.innerText.trim().length}`);
         
@@ -264,20 +271,23 @@
     }, 4000);
   }
 
-  // Listen for runtime trigger messages (if tab is already open/active)
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === 'triggerInjection') {
-      chrome.storage.local.get(['pendingInjections'], (data) => {
-        const pendingInjections = data.pendingInjections || {};
-        const prompt = pendingInjections[domainKey];
-        if (prompt) {
-          attemptInjection(prompt, domainKey, 0);
-          sendResponse({ success: true });
-        } else {
-          sendResponse({ success: false });
-        }
-      });
-      return true; // Keep channel open
-    }
-  });
+  // Prevent duplicate listeners on re-injection
+  if (!window.__contextFlowListenerRegistered) {
+    window.__contextFlowListenerRegistered = true;
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.action === 'triggerInjection') {
+        chrome.storage.local.get(['pendingInjections'], (data) => {
+          const pendingInjections = data.pendingInjections || {};
+          const prompt = pendingInjections[domainKey];
+          if (prompt) {
+            attemptInjection(prompt, domainKey, 0);
+            sendResponse({ success: true });
+          } else {
+            sendResponse({ success: false });
+          }
+        });
+        return true; // Keep channel open
+      }
+    });
+  }
 })();

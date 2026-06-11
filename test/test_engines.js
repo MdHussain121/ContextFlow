@@ -3,8 +3,8 @@
  * Validates local compression and hydration business logic.
  */
 
-const { compressContext } = require('./modules/compression.js');
-const { generateHydrationPrompt } = require('./modules/hydration.js');
+const { compressContext } = require('../modules/compression.js');
+const { generateHydrationPrompt } = require('../modules/hydration.js');
 
 let testsPassed = 0;
 let testsFailed = 0;

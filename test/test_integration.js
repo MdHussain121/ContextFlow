@@ -10,7 +10,7 @@ const fs = require('fs');
 async function runTests() {
   console.log('=== Starting ContextFlow Extension Chrome Integration Tests ===\n');
 
-  const extensionPath = path.resolve(__dirname);
+  const extensionPath = path.resolve(__dirname, '..');
   const userDataDir = path.join(__dirname, 'scratch', 'test_profile');
 
   // Clean test profile directory to prevent service worker caching/pollution
@@ -45,7 +45,7 @@ async function runTests() {
     console.log(`Extension loaded successfully. ID: ${extensionId}\n`);
 
     // Read the mock chat HTML template
-    const mockChatHtml = fs.readFileSync(path.join(__dirname, 'popup', 'mock_chat.html'), 'utf8');
+    const mockChatHtml = fs.readFileSync(path.join(__dirname, '..', 'popup', 'mock_chat.html'), 'utf8');
 
     // 2. Setup mock routing for chatbot domains using robust RegExps
     await browserContext.route(/.*chatgpt\.com.*/, async route => {
@@ -62,10 +62,32 @@ async function runTests() {
       });
     });
 
+    await browserContext.route(/.*claude\.ai.*/, async route => {
+      await route.fulfill({
+        contentType: 'text/html',
+        body: mockChatHtml
+      });
+    });
+
     await browserContext.route(/.*chat\.mistral\.ai.*/, async route => {
       await route.fulfill({
         contentType: 'text/html',
         body: mockChatHtml
+      });
+    });
+
+    await browserContext.route(/.*chat\.deepseek\.com.*/, async route => {
+      await route.fulfill({
+        contentType: 'text/html',
+        body: mockChatHtml
+      });
+    });
+
+    // Route mock_chat.js to bypass CSP block on inline scripts (registered last so it matches first)
+    await browserContext.route(/.*mock_chat\.js/, async route => {
+      await route.fulfill({
+        contentType: 'application/javascript',
+        body: fs.readFileSync(path.join(__dirname, '..', 'popup', 'mock_chat.js'), 'utf8')
       });
     });
 
@@ -107,6 +129,9 @@ async function runTests() {
     } else {
       throw new Error(`Capture failed! Status: ${statusText}, Stats: ${statsText}`);
     }
+
+    console.log('Selecting Full Context compression mode...');
+    await popupPage.selectOption('#opt-compression', 'full');
 
     console.log('\n[TEST 2] Testing Injection into Gemini...');
     // In popup, click "Open in Gemini"
@@ -150,6 +175,9 @@ async function runTests() {
     } else {
       throw new Error(`Capture from Gemini failed! Status: ${statusText2}, Stats: ${statsText2}`);
     }
+
+    console.log('Selecting Full Context compression mode...');
+    await popupPage2.selectOption('#opt-compression', 'full');
 
     console.log('\n[TEST 4] Testing Injection into Mistral...');
     const mistralCard = popupPage2.locator('.sync-card:not(.disabled)', { hasText: 'Mistral' });

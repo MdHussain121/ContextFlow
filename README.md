@@ -10,8 +10,10 @@ Seamless context portability between AI assistants. Local-first, secure, and bea
 
 - **Context Capture**: Intelligent DOM scraper targeting active conversation content on ChatGPT, Claude, Gemini, Mistral, and DeepSeek.
 - **Semantic Compression**: Automatically extracts Objectives, Decisions, Constraints, and Active Tasks from conversation history, reducing token footprint while preserving meaning.
+- **Compression Mode Selector**: Interactive popup dropdown allowing the user to select between **Full Context** (complete history), **Balanced Context** (heuristics extraction), and **Minimal Context** (objectives and tasks only) modes.
 - **Instant Hydration**: Generates standard markdown-formatted context prompts and injects them directly into the destination chatbot's input field.
 - **Tab Reuse**: Reuses open chatbot tabs, switching focus automatically.
+- **Neo-Brutalist Visual Layout**: A highly polished custom design featuring unified card borders, aligned status indicators, responsive buttons, and solid shadows.
 - **Secure & Local-First**: No servers, no remote APIs, no telemetry. Your chats stay on your machine.
 
 ---

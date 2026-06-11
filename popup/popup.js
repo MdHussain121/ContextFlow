@@ -63,16 +63,19 @@ function initOptions() {
     if (data.options) {
       document.getElementById('opt-system').checked = !!data.options.includeSystemInstructions;
       document.getElementById('opt-reuse').checked = !!data.options.reuseTabs;
+      const compressionSelect = document.getElementById('opt-compression');
+      if (compressionSelect && data.options.compressionMode) {
+        compressionSelect.value = data.options.compressionMode;
+      }
     }
   });
 }
 
 function saveOptions() {
   const options = {
-    compressHistory: false,
     includeSystemInstructions: document.getElementById('opt-system').checked,
     reuseTabs: document.getElementById('opt-reuse').checked,
-    compressionMode: 'full'
+    compressionMode: document.getElementById('opt-compression').value
   };
   chrome.storage.local.set({ options });
 }
@@ -80,6 +83,7 @@ function saveOptions() {
 function setupEventListeners() {
   document.getElementById('opt-system').addEventListener('change', saveOptions);
   document.getElementById('opt-reuse').addEventListener('change', saveOptions);
+  document.getElementById('opt-compression').addEventListener('change', saveOptions);
 
   document.getElementById('hydrate-btn').addEventListener('click', () => {
     if (capturedContext && capturedContext.messages.length > 0) {
@@ -108,10 +112,9 @@ function setupEventListeners() {
 
 function getActiveOptions() {
   return {
-    compressHistory: false,
     includeSystemInstructions: document.getElementById('opt-system').checked,
     reuseTabs: document.getElementById('opt-reuse').checked,
-    compressionMode: 'full'
+    compressionMode: document.getElementById('opt-compression').value
   };
 }
 
@@ -210,13 +213,13 @@ function extractContextFromTab() {
   }, (results) => {
     if (chrome.runtime.lastError) {
       console.error('[ContextFlow Popup] Script execution error:', chrome.runtime.lastError.message);
-      updateUIStatusNoBuffer();
+      updateUIStatusNoBuffer('ACCESS DENIED');
       return;
     }
 
     if (!results || !results[0] || !results[0].result) {
       console.warn('[ContextFlow Popup] No script execution results returned.');
-      updateUIStatusNoBuffer();
+      updateUIStatusNoBuffer('NO MESSAGES FOUND');
       return;
     }
 
@@ -240,11 +243,15 @@ function renderSyncGrid() {
   CHATBOTS.forEach(bot => {
     const isCurrent = (bot.key === activeTabInfo.chatbotKey);
     
+    if (isCurrent) {
+      return; // Skip rendering the button for the currently active chatbot
+    }
+    
     // Create card element
     const card = document.createElement('div');
-    card.className = `sync-card ${isCurrent ? 'disabled' : ''}`;
+    card.className = 'sync-card';
     card.setAttribute('role', 'button');
-    card.setAttribute('tabindex', isCurrent ? '-1' : '0');
+    card.setAttribute('tabindex', '0');
     
     card.innerHTML = `
       <div class="sync-card-icon">${bot.icon}</div>
@@ -253,14 +260,12 @@ function renderSyncGrid() {
       </div>
     `;
 
-    if (!isCurrent) {
-      card.addEventListener('click', () => triggerTransfer(bot));
-      card.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          triggerTransfer(bot);
-        }
-      });
-    }
+    card.addEventListener('click', () => triggerTransfer(bot));
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        triggerTransfer(bot);
+      }
+    });
 
     gridContainer.appendChild(card);
   });
@@ -295,9 +300,10 @@ function updateUIStatusHydrated(context) {
   document.getElementById('hydrate-btn').disabled = false;
 }
 
-function updateUIStatusNoBuffer() {
-  document.getElementById('buffer-status-text').innerText = 'NO BUFFER';
-  document.getElementById('stats-text').innerText = 'Turns: 0 Messages | Tokens: ~0';
+function updateUIStatusNoBuffer(reason) {
+  const statusText = reason || 'NO BUFFER';
+  document.getElementById('buffer-status-text').innerText = statusText;
+  document.getElementById('stats-text').innerText = reason ? 'Try refreshing the chatbot page' : 'Navigate to a chatbot to capture context';
   document.getElementById('status-dot').className = 'status-dot';
   document.getElementById('progress-fill').style.width = '0%';
   document.getElementById('progress-percentage').innerText = '0%';

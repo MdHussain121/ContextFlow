@@ -8,8 +8,8 @@ const path = require('path');
 const fs = require('fs');
 
 // Load logic engines
-const { compressContext } = require('./modules/compression.js');
-const { generateHydrationPrompt } = require('./modules/hydration.js');
+const { compressContext } = require('../modules/compression.js');
+const { generateHydrationPrompt } = require('../modules/hydration.js');
 
 const PLATFORMS = ['chatgpt', 'claude', 'gemini', 'mistral', 'deepseek'];
 const MODES = ['minimal', 'balanced', 'full'];
@@ -19,8 +19,8 @@ const OPTIONS = [
 ];
 
 // Load content scripts as strings for evaluation
-const captureScript = fs.readFileSync(path.join(__dirname, 'content', 'capture.js'), 'utf8');
-const injectScript = fs.readFileSync(path.join(__dirname, 'content', 'inject.js'), 'utf8');
+const captureScript = fs.readFileSync(path.join(__dirname, '..', 'content', 'capture.js'), 'utf8');
+const injectScript = fs.readFileSync(path.join(__dirname, '..', 'content', 'inject.js'), 'utf8');
 
 async function runMatrixTests() {
   console.log('=== Starting ContextFlow Matrix Test Suite ===');
@@ -31,6 +31,11 @@ async function runMatrixTests() {
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
+
+  context.on('page', page => {
+    page.on('console', msg => console.log(`[BROWSER CONSOLE]`, msg.text()));
+    page.on('pageerror', err => console.error(`[BROWSER ERROR]`, err.message));
+  });
 
   const dummyHtml = '<html><body><div id="test-root"></div></body></html>';
   await context.route(/.*chatgpt\.com.*/, route => route.fulfill({ contentType: 'text/html', body: dummyHtml }));

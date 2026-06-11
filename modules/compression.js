@@ -51,16 +51,19 @@ function compressContext(chatHistory, mode = 'balanced') {
     if (cleanLine.length < 5) continue;
 
     // Categorize using rules
-    if (line.match(/^[-*+]\s+\[\s\]/) || cleanLine.match(/\b(?:todo|task|implement|create|fix|add|write)\b/i)) {
+    // NOTE: A single line may match multiple categories (e.g., "We decided to avoid external APIs"
+    // could match both decisions and constraints). This intentional overlap is acceptable because
+    // each category serves a different purpose in the hydration prompt.
+    if (line.match(/^[-*+]\s+\[\s\]/) || cleanLine.match(/\b(?:todo|task|implement|fix|write|build|setup|configure|deploy|migrate|refactor)\b/i)) {
       if (heuristicTasks.length < 10) heuristicTasks.push(cleanLine);
     }
     if (cleanLine.match(/\b(?:objective|goal|aim|target|want to|intend to|would like to|purpose)\b/i)) {
       if (heuristicObjectives.length < 10) heuristicObjectives.push(cleanLine);
     }
-    if (cleanLine.match(/\b(?:decided|chose|selected|agreed|decision|determined|opted to|use|using)\b/i)) {
+    if (cleanLine.match(/\b(?:decided|chose|selected|agreed on|decision|determined|opted to|went with|picked)\b/i)) {
       if (heuristicDecisions.length < 10) heuristicDecisions.push(cleanLine);
     }
-    if (cleanLine.match(/\b(?:must|should|cannot|limit|restriction|constraint|avoid|don't|do not|required to|restrict)\b/i)) {
+    if (cleanLine.match(/\b(?:must not|must|cannot|can't|limit|restriction|constraint|avoid|don't|do not|required to|restrict|never|forbidden|prohibited)\b/i)) {
       if (heuristicConstraints.length < 10) heuristicConstraints.push(cleanLine);
     }
   }

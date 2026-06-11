@@ -82,6 +82,11 @@ body {
   gap: 8px;
 }
 
+.section.status-box,
+.section.options-box {
+  gap: 0;
+}
+
 .section-title {
   font-family: var(--font-label);
   font-size: 14px;
@@ -100,6 +105,7 @@ body {
   align-items: center;
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
+  box-shadow: var(--shadow-thick);
 }
 
 .box-title {
@@ -358,4 +364,43 @@ body {
 .option-label-text {
   font-family: var(--font-body);
   font-size: 13px;
+}
+
+/* Custom Select Dropdown (Neo-Brutalist style) */
+.option-select-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.select-label {
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.custom-select {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border: var(--border-thin);
+  border-radius: 4px;
+  background-color: #FFFFFF;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.1s;
+}
+
+.custom-select:hover {
+  background-color: #f6f6f6;
+  transform: scale(1.02);
+}
+
+.custom-select:focus {
+  background-color: #FFFFFF;
+  border-color: var(--primary-color);
 }

@@ -17,7 +17,19 @@ function generateHydrationPrompt(compressedData, metadata = {}) {
   }
 
   prompt += `[PROJECT SUMMARY]\n`;
-  prompt += `Active project/topic: "${title}"\n\n`;
+  prompt += `Active project/topic: "${title}"\n`;
+  prompt += `Context captured: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC\n\n`;
+
+  // Calculate rough token estimate so the receiving AI knows the context size
+  let totalChars = 0;
+  if (history && history.length > 0) {
+    history.forEach(msg => { totalChars += (msg.text || '').length; });
+  }
+  [objectives, decisions, constraints, activeTasks].forEach(arr => {
+    if (arr) arr.forEach(item => { totalChars += item.length; });
+  });
+  const estimatedTokens = Math.round(totalChars / 4);
+  prompt += `Context size: ~${estimatedTokens} tokens\n\n`;
 
   if (objectives && objectives.length > 0) {
     prompt += `[OBJECTIVES]\n`;

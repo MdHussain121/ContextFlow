@@ -84,23 +84,38 @@
       selectorsToRemove.forEach(sel => {
         clone.querySelectorAll(sel).forEach(node => node.remove());
       });
-      
-      // Temporarily attach to DOM so layout-aware innerText evaluates correctly
-      const tempDiv = document.createElement('div');
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      tempDiv.style.visibility = 'hidden';
-      tempDiv.appendChild(clone);
-      document.body.appendChild(tempDiv);
-      const text = clone.innerText.trim();
-      document.body.removeChild(tempDiv);
-      return text;
+      // Use textContent instead of attaching to live DOM
+      // Walk text nodes to preserve line breaks from block elements
+      return extractTextWithBreaks(clone).trim();
     } catch (e) {
-      return element.innerText ? element.innerText.trim() : '';
+      return element.textContent ? element.textContent.trim() : '';
     }
   }
 
+  function extractTextWithBreaks(node) {
+    let text = '';
+    const blockTags = new Set(['DIV', 'P', 'BR', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'PRE', 'BLOCKQUOTE', 'TR']);
+    for (const child of node.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        text += child.textContent;
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        if (child.tagName === 'BR') {
+          text += '\n';
+        } else {
+          const childText = extractTextWithBreaks(child);
+          if (blockTags.has(child.tagName) && childText) {
+            text += '\n' + childText + '\n';
+          } else {
+            text += childText;
+          }
+        }
+      }
+    }
+    return text;
+  }
+
   // --- ChatGPT Extractor ---
+  // Selectors last verified: June 2026
   function captureChatGPT() {
     const list = [];
     const turns = document.querySelectorAll('[data-testid^="conversation-turn"]');
@@ -125,6 +140,7 @@
   }
 
   // --- Claude Extractor ---
+  // Selectors last verified: June 2026
   function captureClaude() {
     const list = [];
     // Claude uses data-testid="user-message" and class .font-claude-message or data-testid="assistant-message"
@@ -146,7 +162,7 @@
       }
 
       const text = cleanMessageText(el);
-      if (text && !text.includes('Copy code') && text.length > 0) {
+      if (text && text.length > 2 && text !== 'Copy code') {
         list.push({ role, text });
       }
     });
@@ -155,19 +171,18 @@
   }
 
   // --- Gemini Extractor ---
+  // Selectors last verified: June 2026
   function captureGemini() {
     const list = [];
     // User queries are in user-query or query-content, model responses in message-content
     const elements = document.querySelectorAll('user-query, .query-content, message-content, .query-text, div[class*="query-content"], div[class*="message-content"], div[class*="message_content"], div[class*="user-query"]');
     
-    console.log('[ContextFlow Capture] captureGemini found elements:', elements.length);
     const uniqueElements = filterTopLevelElements(elements);
-    console.log('[ContextFlow Capture] captureGemini uniqueElements after top-level filter:', uniqueElements.length);
 
     uniqueElements.forEach(el => {
       const visible = isElementVisible(el);
       const tagName = el.tagName.toLowerCase();
-      console.log(`[ContextFlow Capture] Element <${tagName}> class: "${el.className}", visible: ${visible}, offsetWidth/Height: ${el.offsetWidth}/${el.offsetHeight}, innerText: "${el.innerText ? el.innerText.substring(0, 30) : ''}"`);
+
       if (!visible) return; // Skip hidden/cached messages
       
       let role = 'assistant';
@@ -190,10 +205,11 @@
   }
 
   // --- Mistral Extractor ---
+  // Selectors last verified: June 2026
   function captureMistral() {
     const list = [];
-    // Mistral chat bubbles are usually divs with classes containing user/assistant or block bubbles
-    const bubbles = document.querySelectorAll('div[class*="message-user"], div[class*="message-assistant"], div[class*="message_user"], div[class*="message_assistant"], div[class*="message-content"], div[class*="message_content"], div[class*="bubble"], div[class*="message"], div[class*="ChatLine"]');
+    // Mistral chat bubbles are usually divs with classes containing user/assistant
+    const bubbles = document.querySelectorAll('div[class*="message-user"], div[class*="message-assistant"], div[class*="message_user"], div[class*="message_assistant"], div[class*="message-content"], div[class*="message_content"]');
     
     const uniqueElements = filterTopLevelElements(bubbles);
 
@@ -222,9 +238,10 @@
   }
 
   // --- DeepSeek Extractor ---
+  // Selectors last verified: June 2026
   function captureDeepSeek() {
     const list = [];
-    const turns = document.querySelectorAll('div[class*="message"], div[class*="turn"], .ds-markdown');
+    const turns = document.querySelectorAll('div[class*="message"][class*="user"], div[class*="message"][class*="assistant"], div[class*="turn"], .ds-markdown');
     
     const uniqueElements = filterTopLevelElements(turns);
 

@@ -12,7 +12,7 @@ async function runRealTests() {
   console.log('This test will open real chatbot domains headfully on your machine.');
   console.log('If you are not logged in, please log in in the opened browser window within 60 seconds.\n');
 
-  const extensionPath = path.resolve(__dirname);
+  const extensionPath = path.resolve(__dirname, '..');
   // We use a persistent profile directory so your login sessions can be stored and reused
   const userDataDir = path.join(__dirname, 'scratch', 'production_test_profile');
 
@@ -84,6 +84,9 @@ async function runRealTests() {
       throw new Error(`ChatGPT Capture failed! Status: ${statusText}`);
     }
 
+    console.log('Selecting Full Context compression mode...');
+    await popupPage.selectOption('#opt-compression', 'full');
+
     // --- TEST 2: Gemini ---
     console.log('\n[TEST 2] Testing Gemini (Real)...');
     // Open Gemini card in popup
@@ -134,6 +137,9 @@ async function runRealTests() {
     } else {
       throw new Error('Gemini Capture failed!');
     }
+
+    console.log('Selecting Full Context compression mode...');
+    await popupPage2.selectOption('#opt-compression', 'full');
 
     // --- TEST 3: Mistral ---
     console.log('\n[TEST 3] Testing Mistral (Real)...');
