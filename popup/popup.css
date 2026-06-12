@@ -366,41 +366,38 @@ body {
   font-size: 13px;
 }
 
-/* Custom Select Dropdown (Neo-Brutalist style) */
-.option-select-container {
+/* Compression Mode Selector */
+.compression-mode-selector {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
 }
 
-.select-label {
+.compression-select {
   font-family: var(--font-label);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.custom-select {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 500;
-  padding: 6px 10px;
+  padding: 4px 8px;
   border: var(--border-thin);
   border-radius: 4px;
   background-color: #FFFFFF;
+  color: var(--primary-color);
   cursor: pointer;
-  outline: none;
-  transition: transform 0.1s;
+  text-transform: uppercase;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%23000' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  padding-right: 24px;
 }
 
-.custom-select:hover {
+.compression-select:hover {
   background-color: #f6f6f6;
-  transform: scale(1.02);
 }
 
-.custom-select:focus {
-  background-color: #FFFFFF;
-  border-color: var(--primary-color);
+.compression-select:focus {
+  outline: 2px solid var(--success-color);
+  outline-offset: 1px;
 }

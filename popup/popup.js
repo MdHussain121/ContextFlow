@@ -120,38 +120,28 @@ function getActiveOptions() {
 
 // --- Active Tab Detection & Scrape ---
 function detectActiveTab() {
-  console.log('[ContextFlow Popup] detectActiveTab initiated');
   // Try querying background for the last active tab first (crucial for automated testing)
   chrome.runtime.sendMessage({ action: 'getLastActiveTab' }, (response) => {
-    console.log('[ContextFlow Popup] getLastActiveTab response:', response);
     if (response && response.tab) {
-      console.log('[ContextFlow Popup] Using last active tab from background:', response.tab.id, response.tab.url);
       processTab(response.tab);
     } else {
-      console.log('[ContextFlow Popup] Last active tab not found in background, running standard fallback...');
       // Standard query fallback
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        console.log('[ContextFlow Popup] Active tabs query returned:', tabs);
         if (tabs.length === 0) return;
         const tab = tabs[0];
         
         if (tab.url && tab.url.startsWith('chrome-extension://')) {
-          console.log('[ContextFlow Popup] Active tab is extension popup, querying all tabs in current window...');
           chrome.tabs.query({ currentWindow: true }, (allTabs) => {
-            console.log('[ContextFlow Popup] All tabs in current window:', allTabs.map(t => ({ id: t.id, url: t.url, title: t.title, active: t.active })));
             const chatbotTab = allTabs.find(t => {
               if (!t.url) return false;
               const matches = CHATBOTS.some(bot => t.url.includes(bot.domain));
-              console.log(`[ContextFlow Popup] Checking tab: ${t.url} - matches chatbot: ${matches}`);
               return matches;
             });
             
             if (chatbotTab) {
-              console.log('[ContextFlow Popup] Found chatbot tab fallback:', chatbotTab.id, chatbotTab.url);
               processTab(chatbotTab);
             } else {
               const otherTab = allTabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
-              console.log('[ContextFlow Popup] Fallback to other non-extension tab:', otherTab ? otherTab.url : 'none');
               processTab(otherTab || tab);
             }
           });
@@ -205,8 +195,6 @@ function extractContextFromTab() {
   document.getElementById('buffer-status-text').innerText = 'HYDRATING BUFFER...';
   document.getElementById('status-dot').className = 'status-dot warning';
 
-  console.log(`[ContextFlow Popup] Requesting capture.js execution on tabId: ${activeTabInfo.id}, url: ${activeTabInfo.url}`);
-
   chrome.scripting.executeScript({
     target: { tabId: activeTabInfo.id },
     files: ['content/capture.js']
@@ -224,7 +212,6 @@ function extractContextFromTab() {
     }
 
     const captureResult = results[0].result;
-    console.log(`[ContextFlow Popup] Capture script returned platform: ${captureResult.platform}, messages: ${captureResult.messages ? captureResult.messages.length : 0}`);
     
     if (captureResult.messages && captureResult.messages.length > 0) {
       capturedContext = captureResult;

@@ -18,9 +18,9 @@ function generateHydrationPrompt(compressedData, metadata = {}) {
 
   prompt += `[PROJECT SUMMARY]\n`;
   prompt += `Active project/topic: "${title}"\n`;
-  prompt += `Context captured: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC\n\n`;
+  prompt += `Context captured: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC\n`;
 
-  // Calculate rough token estimate so the receiving AI knows the context size
+  // Calculate rough token estimate for context size awareness
   let totalChars = 0;
   if (history && history.length > 0) {
     history.forEach(msg => { totalChars += (msg.text || '').length; });

@@ -75,12 +75,12 @@
           <span class="custom-checkbox"></span>
           <span class="option-label-text">Reuse chatbot tabs</span>
         </label>
-        <div class="option-select-container">
-          <label for="opt-compression" class="option-label-text select-label">Compression Mode</label>
-          <select id="opt-compression" class="custom-select">
-            <option value="full">Full Context</option>
-            <option value="balanced" selected>Balanced Context</option>
-            <option value="minimal">Minimal Context</option>
+        <div class="option-item compression-mode-selector">
+          <span class="option-label-text">Compression:</span>
+          <select id="opt-compression" class="compression-select">
+            <option value="full">Full (all messages)</option>
+            <option value="balanced" selected>Balanced (semantic)</option>
+            <option value="minimal">Minimal (goals only)</option>
           </select>
         </div>
       </div>

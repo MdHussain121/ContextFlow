@@ -14,14 +14,10 @@
 
   if (!domainKey) return;
 
-  console.log(`[ContextFlow Inject] Script loaded on ${url}. Identified domainKey: ${domainKey}`);
-
   // Check storage for pending hydration prompt
   chrome.storage.local.get(['pendingInjections'], (data) => {
     const pendingInjections = data.pendingInjections || {};
     const prompt = pendingInjections[domainKey];
-    
-    console.log(`[ContextFlow Inject] Storage checked. Prompt present for ${domainKey}: ${!!prompt}`);
     if (prompt) {
       // Find the input field and attempt injection
       attemptInjection(prompt, domainKey, 0);
@@ -29,7 +25,6 @@
   });
 
   function attemptInjection(prompt, domain, attempts) {
-    console.log(`[ContextFlow Inject] Attempt ${attempts}/60 to locate input field for ${domain}`);
     if (attempts > 60) {
       // 30 seconds timeout - clear storage since it timed out
       console.warn(`[ContextFlow Inject] Injection timed out for ${domain}`);
@@ -39,17 +34,10 @@
     }
 
     const inputField = findInputField(domain);
-    console.log(`[ContextFlow Inject] Input field search result for ${domain}:`, inputField ? 'Found!' : 'Not found');
-
-    if (!inputField && attempts % 10 === 0) {
-      console.log(`[ContextFlow Inject] Current HTML body snippet: ${document.body ? document.body.innerHTML.substring(0, 1000) : 'No body'}`);
-    }
 
     if (inputField) {
       setTimeout(() => {
-        console.log(`[ContextFlow Inject] Invoking injectText for ${domain}...`);
         const injected = injectText(inputField, prompt);
-        console.log(`[ContextFlow Inject] injectText result for ${domain}: ${injected}`);
         if (injected) {
           clearPendingInjection(domain); // Clear from storage ONLY after successful injection
           showToast('⚡ Context Hydrated Successfully!', '#7ED957');
@@ -189,10 +177,8 @@
         // Note: execCommand('insertText') is deprecated but still widely supported.
         // Fallback to direct textNode insertion if it fails.
         const execSuccess = document.execCommand('insertText', false, text);
-        console.log(`[ContextFlow Inject] execCommand result: ${execSuccess}, current innerText length: ${element.innerText.trim().length}`);
         
         if (!execSuccess || element.innerText.trim().length === 0) {
-          console.log('[ContextFlow Inject] execCommand failed or empty, falling back to direct textNode insertion');
           element.innerHTML = '';
           const textNode = document.createTextNode(text);
           element.appendChild(textNode);

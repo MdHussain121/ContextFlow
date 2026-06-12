@@ -5,7 +5,7 @@
 
 let lastActiveTabId = null;
 
-// Restore cached lastActiveTabId from session storage on service worker restart
+// Restore lastActiveTabId from session storage on SW restart
 chrome.storage.session.get(['lastActiveTabId'], (data) => {
   if (data.lastActiveTabId) {
     lastActiveTabId = data.lastActiveTabId;
@@ -23,20 +23,23 @@ function isTestUrl(url) {
 }
 
 // Track tab activation to support testing popup context retrieval
+function persistActiveTab(tabId) {
+  lastActiveTabId = tabId;
+  chrome.storage.session.set({ lastActiveTabId: tabId });
+}
+
 chrome.tabs.onActivated.addListener((activeInfo) => {
   chrome.tabs.get(activeInfo.tabId, (tab) => {
     if (chrome.runtime.lastError || !tab) return;
     if (isChatbotUrl(tab.url) || isTestUrl(tab.url)) {
-      lastActiveTabId = tab.id;
-      chrome.storage.session.set({ lastActiveTabId: tab.id });
+      persistActiveTab(tab.id);
     }
   });
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (tab.active && (isChatbotUrl(tab.url) || isTestUrl(tab.url))) {
-    lastActiveTabId = tabId;
-    chrome.storage.session.set({ lastActiveTabId: tabId });
+    persistActiveTab(tabId);
   }
 });
 
@@ -48,7 +51,7 @@ chrome.runtime.onInstalled.addListener(() => {
         options: {
           includeSystemInstructions: true,
           reuseTabs: true,
-          compressionMode: 'balanced' // balanced, minimal, full
+          compressionMode: 'balanced'
         },
         pendingInjections: {}
       });
@@ -81,7 +84,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           if (isTest) {
             chrome.tabs.create({ url: 'about:blank' }, (tab) => {
               if (chrome.runtime.lastError) {
-                console.error('ContextFlow: Failed to create tab:', chrome.runtime.lastError.message);
+                console.error('[ContextFlow] Tab creation failed:', chrome.runtime.lastError.message);
                 if (callback) callback();
                 return;
               }
@@ -92,7 +95,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           } else {
             chrome.tabs.create({ url }, () => {
               if (chrome.runtime.lastError) {
-                console.error('ContextFlow: Failed to create tab:', chrome.runtime.lastError.message);
+                console.error('[ContextFlow] Tab creation failed:', chrome.runtime.lastError.message);
               }
               if (callback) callback();
             });
