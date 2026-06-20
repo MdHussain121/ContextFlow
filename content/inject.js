@@ -15,12 +15,10 @@
   if (!domainKey) return;
 
   // Check storage for pending hydration prompt
-  chrome.storage.local.get(['pendingInjections'], (data) => {
-    const pendingInjections = data.pendingInjections || {};
-    const prompt = pendingInjections[domainKey];
-    if (prompt) {
+  chrome.runtime.sendMessage({ action: 'getTabPrompt' }, (response) => {
+    if (response && response.prompt) {
       // Find the input field and attempt injection
-      attemptInjection(prompt, domainKey, 0);
+      attemptInjection(response.prompt, domainKey, 0);
     }
   });
 
@@ -28,7 +26,7 @@
     if (attempts > 60) {
       // 30 seconds timeout - clear storage since it timed out
       console.warn(`[ContextFlow Inject] Injection timed out for ${domain}`);
-      clearPendingInjection(domain);
+      clearPendingInjection();
       showToast('Context ready on clipboard! (Injection timed out)', '#FFD54A');
       return;
     }
@@ -39,12 +37,8 @@
       setTimeout(() => {
         const injected = injectText(inputField, prompt);
         if (injected) {
-          clearPendingInjection(domain); // Clear from storage ONLY after successful injection
+          clearPendingInjection(); // Clear from storage ONLY after successful injection
           showToast('⚡ Context Hydrated Successfully!', '#7ED957');
-          // Clear clipboard for security
-          try {
-            navigator.clipboard.writeText('').catch(() => {});
-          } catch (e) { /* Clipboard API may not be available */ }
         } else {
           showToast('Clipboard fallback activated! Paste manually (Ctrl+V)', '#FFD54A');
         }
@@ -57,14 +51,8 @@
     }
   }
 
-  function clearPendingInjection(domain) {
-    chrome.storage.local.get(['pendingInjections'], (data) => {
-      const pendingInjections = data.pendingInjections || {};
-      if (pendingInjections[domain]) {
-        delete pendingInjections[domain];
-        chrome.storage.local.set({ pendingInjections });
-      }
-    });
+  function clearPendingInjection() {
+    chrome.runtime.sendMessage({ action: 'clearTabPrompt' });
   }
 
   function findInputField(domain) {
@@ -175,13 +163,22 @@
         }));
         
         // Note: execCommand('insertText') is deprecated but still widely supported.
-        // Fallback to direct textNode insertion if it fails.
-        const execSuccess = document.execCommand('insertText', false, text);
+        let success = false;
+        try {
+          success = document.execCommand('insertText', false, text);
+        } catch (execErr) {
+          console.warn('[ContextFlow Inject] execCommand failed/blocked:', execErr);
+        }
         
-        if (!execSuccess || element.innerText.trim().length === 0) {
-          element.innerHTML = '';
+        if (!success) {
+          // Fallback selection range manipulation if execCommand is unsupported or blocked
+          console.log('[ContextFlow Inject] Falling back to Selection Range text node insertion');
+          range.deleteContents();
           const textNode = document.createTextNode(text);
-          element.appendChild(textNode);
+          range.insertNode(textNode);
+          range.collapse(false); // Move cursor to the end of insertion
+          selection.removeAllRanges();
+          selection.addRange(range);
         }
         
         // Dispatch framework events
@@ -190,9 +187,6 @@
         return true;
       } catch (e) {
         console.error('[ContextFlow Inject] Error during contenteditable injection:', e);
-        element.innerHTML = '';
-        const textNode = document.createTextNode(text);
-        element.appendChild(textNode);
         dispatchEvents(element, text);
         return true;
       }
@@ -234,7 +228,7 @@
     toast.style.fontSize = '14px';
     toast.style.boxShadow = '4px 4px 0px #000000';
     toast.style.zIndex = '999999';
-    toast.style.transition = 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+    toast.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
     toast.style.transform = 'translateY(100px)';
     toast.style.opacity = '0';
     toast.innerText = message;
@@ -262,11 +256,9 @@
     window.__contextFlowListenerRegistered = true;
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.action === 'triggerInjection') {
-        chrome.storage.local.get(['pendingInjections'], (data) => {
-          const pendingInjections = data.pendingInjections || {};
-          const prompt = pendingInjections[domainKey];
-          if (prompt) {
-            attemptInjection(prompt, domainKey, 0);
+        chrome.runtime.sendMessage({ action: 'getTabPrompt' }, (response) => {
+          if (response && response.prompt) {
+            attemptInjection(response.prompt, domainKey, 0);
             sendResponse({ success: true });
           } else {
             sendResponse({ success: false });

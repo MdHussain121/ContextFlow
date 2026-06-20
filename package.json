@@ -5,7 +5,7 @@
   "main": "background.js",
   "scripts": {
     "test": "node test/test_engines.js",
-    "test:integration": "npx playwright test test/test_integration.js",
+    "test:integration": "node test/test_integration.js",
     "test:matrix": "node test/test_matrix.js"
   },
   "keywords": ["chrome-extension", "ai", "chatgpt", "claude", "gemini", "context-transfer"],

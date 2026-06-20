@@ -3,6 +3,14 @@
  * Formats captured and compressed context into a destination-ready prompt.
  */
 
+function estimateTokens(text) {
+  if (!text) return 0;
+  // Robust heuristic: max of wordCount * 1.3 (standard English text) and charCount / 4 (markdown/code/symbols)
+  const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+  const chars = text.length;
+  return Math.round(Math.max(words * 1.3, chars / 4));
+}
+
 function generateHydrationPrompt(compressedData, metadata = {}) {
   const { objectives, decisions, constraints, activeTasks, history } = compressedData;
   const title = metadata.title || 'Untitled Conversation';
@@ -20,15 +28,15 @@ function generateHydrationPrompt(compressedData, metadata = {}) {
   prompt += `Active project/topic: "${title}"\n`;
   prompt += `Context captured: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC\n`;
 
-  // Calculate rough token estimate for context size awareness
-  let totalChars = 0;
+  // Calculate rough token estimate for context size awareness using unified helper
+  let totalText = '';
   if (history && history.length > 0) {
-    history.forEach(msg => { totalChars += (msg.text || '').length; });
+    history.forEach(msg => { totalText += (msg.text || '') + ' '; });
   }
   [objectives, decisions, constraints, activeTasks].forEach(arr => {
-    if (arr) arr.forEach(item => { totalChars += item.length; });
+    if (arr) arr.forEach(item => { totalText += item + ' '; });
   });
-  const estimatedTokens = Math.round(totalChars / 4);
+  const estimatedTokens = estimateTokens(totalText);
   prompt += `Context size: ~${estimatedTokens} tokens\n\n`;
 
   if (objectives && objectives.length > 0) {
@@ -78,5 +86,5 @@ function generateHydrationPrompt(compressedData, metadata = {}) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { generateHydrationPrompt };
+  module.exports = { generateHydrationPrompt, estimateTokens };
 }

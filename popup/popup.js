@@ -87,7 +87,6 @@ function setupEventListeners() {
 
   document.getElementById('hydrate-btn').addEventListener('click', () => {
     if (capturedContext && capturedContext.messages.length > 0) {
-      // Copy to clipboard as standard behavior when hydrating active input
       const options = getActiveOptions();
       const compressed = compressContext(capturedContext.messages, options.compressionMode);
       const prompt = generateHydrationPrompt(compressed, {
@@ -101,10 +100,40 @@ function setupEventListeners() {
         const originalText = btn.innerHTML;
         btn.innerHTML = '⚡ COPIED TO CLIPBOARD!';
         btn.style.backgroundColor = 'var(--warning-color)';
-        setTimeout(() => {
-          btn.innerHTML = originalText;
-          btn.style.backgroundColor = 'var(--success-color)';
-        }, 1500);
+        
+        const tabId = activeTabInfo.id;
+        if (tabId && activeTabInfo.chatbotKey) {
+          chrome.storage.local.get(['pendingInjections'], (data) => {
+            const pendingInjections = data.pendingInjections || {};
+            pendingInjections[tabId.toString()] = prompt;
+            chrome.storage.local.set({ pendingInjections }, () => {
+              chrome.tabs.sendMessage(tabId, { action: 'triggerInjection' }, (res) => {
+                if (chrome.runtime.lastError || !res || !res.success) {
+                  showToast('Clipboard fallback activated! Paste manually (Ctrl+V)', '#FFD54A');
+                  setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.backgroundColor = 'var(--success-color)';
+                  }, 1500);
+                } else {
+                  btn.innerHTML = '🚀 HYDRATED ACTIVE INPUT!';
+                  btn.style.backgroundColor = 'var(--success-color)';
+                  showToast('⚡ Input Hydrated Successfully!', '#7ED957');
+                  setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.backgroundColor = 'var(--success-color)';
+                  }, 1500);
+                }
+              });
+            });
+          });
+        } else {
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.backgroundColor = 'var(--success-color)';
+          }, 1500);
+        }
+      }).catch((err) => {
+        console.error('Clipboard write failed:', err);
       });
     }
   });
@@ -120,36 +149,44 @@ function getActiveOptions() {
 
 // --- Active Tab Detection & Scrape ---
 function detectActiveTab() {
-  // Try querying background for the last active tab first (crucial for automated testing)
-  chrome.runtime.sendMessage({ action: 'getLastActiveTab' }, (response) => {
-    if (response && response.tab) {
-      processTab(response.tab);
-    } else {
-      // Standard query fallback
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs.length === 0) return;
-        const tab = tabs[0];
-        
-        if (tab.url && tab.url.startsWith('chrome-extension://')) {
-          chrome.tabs.query({ currentWindow: true }, (allTabs) => {
-            const chatbotTab = allTabs.find(t => {
-              if (!t.url) return false;
-              const matches = CHATBOTS.some(bot => t.url.includes(bot.domain));
-              return matches;
-            });
-            
-            if (chatbotTab) {
-              processTab(chatbotTab);
-            } else {
-              const otherTab = allTabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
-              processTab(otherTab || tab);
-            }
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs.length === 0) return;
+    const activeTab = tabs[0];
+
+    const resolveTab = (tab) => {
+      if (tab.url && tab.url.startsWith('chrome-extension://')) {
+        chrome.tabs.query({ currentWindow: true }, (allTabs) => {
+          const chatbotTab = allTabs.find(t => {
+            if (!t.url) return false;
+            return CHATBOTS.some(bot => t.url.includes(bot.domain) || t.url.includes(`bot=${bot.key}`)) || t.url.includes('mock_chat.html');
           });
-        } else {
-          processTab(tab);
-        }
-      });
-    }
+          
+          if (chatbotTab) {
+            processTab(chatbotTab);
+          } else {
+            const otherTab = allTabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
+            processTab(otherTab || tab);
+          }
+        });
+      } else {
+        processTab(tab);
+      }
+    };
+
+    chrome.storage.local.get(['testMode'], (data) => {
+      const isTestMode = !!data.testMode;
+      if (isTestMode) {
+        chrome.runtime.sendMessage({ action: 'getLastActiveTab' }, (response) => {
+          if (response && response.tab) {
+            processTab(response.tab);
+          } else {
+            resolveTab(activeTab);
+          }
+        });
+      } else {
+        resolveTab(activeTab);
+      }
+    });
   });
 }
 
@@ -240,6 +277,12 @@ function renderSyncGrid() {
     card.setAttribute('role', 'button');
     card.setAttribute('tabindex', '0');
     
+    // Check if context is empty
+    const isBufferEmpty = !capturedContext || !capturedContext.messages || capturedContext.messages.length === 0;
+    if (isBufferEmpty) {
+      card.classList.add('disabled');
+    }
+    
     card.innerHTML = `
       <div class="sync-card-icon">${bot.icon}</div>
       <div class="sync-card-text">
@@ -262,13 +305,12 @@ function updateUIStatusHydrated(context) {
   const msgCount = context.messages.length;
   const turns = Math.ceil(msgCount / 2);
   
-  // Estimate tokens based on words (approx 1.3 tokens per word)
-  let wordCount = 0;
+  // Estimate tokens using the unified helper from hydration.js
+  let totalText = '';
   context.messages.forEach(msg => {
-    const text = msg.text || '';
-    wordCount += text.trim().split(/\s+/).filter(w => w.length > 0).length;
+    totalText += (msg.text || '') + ' ';
   });
-  const tokens = Math.round(wordCount * 1.3);
+  const tokens = estimateTokens(totalText);
   
   // Format token output (e.g. 2.4k)
   const tokenString = tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : tokens;
@@ -285,6 +327,9 @@ function updateUIStatusHydrated(context) {
 
   // Enable buttons
   document.getElementById('hydrate-btn').disabled = false;
+  
+  // Re-render sync grid to enable cards
+  renderSyncGrid();
 }
 
 function updateUIStatusNoBuffer(reason) {
@@ -295,11 +340,17 @@ function updateUIStatusNoBuffer(reason) {
   document.getElementById('progress-fill').style.width = '0%';
   document.getElementById('progress-percentage').innerText = '0%';
   document.getElementById('hydrate-btn').disabled = true;
+  
+  // Re-render sync grid to disable cards
+  renderSyncGrid();
 }
 
 // --- Context Transfer Actions ---
 function triggerTransfer(targetBot) {
-  if (!capturedContext || capturedContext.messages.length === 0) return;
+  if (!capturedContext || capturedContext.messages.length === 0) {
+    showToast('No captured context to transfer!', '#FF6B6B');
+    return;
+  }
 
   const options = getActiveOptions();
   
@@ -339,4 +390,41 @@ function triggerTransfer(targetBot) {
 function getChatbotName(key) {
   const bot = CHATBOTS.find(b => b.key === key);
   return bot ? bot.name : 'Another Assistant';
+}
+
+function showToast(message, bgColor) {
+  const toast = document.createElement('div');
+  toast.style.position = 'fixed';
+  toast.style.bottom = '12px';
+  toast.style.left = '50%';
+  toast.style.transform = 'translate(-50%, 100px)';
+  toast.style.backgroundColor = bgColor || 'var(--warning-color)';
+  toast.style.color = '#000000';
+  toast.style.border = '2px solid #000000';
+  toast.style.borderRadius = '4px';
+  toast.style.padding = '8px 16px';
+  toast.style.fontFamily = 'var(--font-label)';
+  toast.style.fontWeight = '600';
+  toast.style.fontSize = '12px';
+  toast.style.boxShadow = '3px 3px 0px #000000';
+  toast.style.zIndex = '9999';
+  toast.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+  toast.style.opacity = '0';
+  toast.innerText = message;
+  toast.style.width = 'max-content';
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.transform = 'translate(-50%, 0)';
+    toast.style.opacity = '1';
+  }, 50);
+
+  setTimeout(() => {
+    toast.style.transform = 'translate(-50%, 100px)';
+    toast.style.opacity = '0';
+    setTimeout(() => {
+      toast.remove();
+    }, 300);
+  }, 2500);
 }

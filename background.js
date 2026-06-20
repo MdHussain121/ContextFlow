@@ -43,6 +43,17 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
+chrome.tabs.onRemoved.addListener((tabId) => {
+  chrome.storage.local.get(['pendingInjections'], (data) => {
+    const pendingInjections = data.pendingInjections || {};
+    const tabKey = tabId.toString();
+    if (pendingInjections[tabKey]) {
+      delete pendingInjections[tabKey];
+      chrome.storage.local.set({ pendingInjections });
+    }
+  });
+});
+
 chrome.runtime.onInstalled.addListener(() => {
   // Initialize default options if not set
   chrome.storage.local.get(['options'], (data) => {
@@ -59,16 +70,12 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// Listen for messages from the popup
+// Listen for messages from the popup or content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'openChatbot') {
     const { url, domainKey, reuseTabs, prompt } = message;
 
-    // First save the prompt in storage for the target domain
-    chrome.storage.local.get(['pendingInjections', 'testMode'], (data) => {
-      const pendingInjections = data.pendingInjections || {};
-      pendingInjections[domainKey] = prompt;
-      
+    chrome.storage.local.get(['testMode'], (data) => {
       const isTest = !!data.testMode;
       let targetUrl = url;
       if (isTest) {
@@ -79,36 +86,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         else if (domainKey === 'deepseek') targetUrl = 'https://chat.deepseek.com/mock_chat.html?bot=deepseek';
       }
       
-      chrome.storage.local.set({ pendingInjections }, () => {
-        const createTab = (url, callback) => {
-          if (isTest) {
-            chrome.tabs.create({ url: 'about:blank' }, (tab) => {
-              if (chrome.runtime.lastError) {
-                console.error('[ContextFlow] Tab creation failed:', chrome.runtime.lastError.message);
-                if (callback) callback();
-                return;
-              }
-              chrome.tabs.update(tab.id, { url }, () => {
-                if (callback) callback();
-              });
+      const createTab = (url, callback) => {
+        if (isTest) {
+          chrome.tabs.create({ url: 'about:blank' }, (tab) => {
+            if (chrome.runtime.lastError || !tab) {
+              console.error('[ContextFlow] Tab creation failed:', chrome.runtime.lastError ? chrome.runtime.lastError.message : 'no tab');
+              if (callback) callback(null);
+              return;
+            }
+            chrome.tabs.update(tab.id, { url }, () => {
+              if (callback) callback(tab);
             });
-          } else {
-            chrome.tabs.create({ url }, () => {
-              if (chrome.runtime.lastError) {
-                console.error('[ContextFlow] Tab creation failed:', chrome.runtime.lastError.message);
-              }
-              if (callback) callback();
-            });
-          }
-        };
+          });
+        } else {
+          chrome.tabs.create({ url }, (tab) => {
+            if (chrome.runtime.lastError || !tab) {
+              console.error('[ContextFlow] Tab creation failed:', chrome.runtime.lastError ? chrome.runtime.lastError.message : 'no tab');
+              if (callback) callback(null);
+              return;
+            }
+            if (callback) callback(tab);
+          });
+        }
+      };
 
-        if (reuseTabs) {
-          // Check if we have an open tab for this chatbot
-          const matchPattern = isTest ? `mock_chat.html?bot=${domainKey}` : getMatchPattern(domainKey);
-          chrome.tabs.query({}, (tabs) => {
-            const existingTab = tabs.find(tab => tab.url && tab.url.includes(matchPattern));
-            
-            if (existingTab) {
+      if (reuseTabs) {
+        // Check if we have an open tab for this chatbot
+        const matchPattern = isTest ? `mock_chat.html?bot=${domainKey}` : getMatchPattern(domainKey);
+        chrome.tabs.query({}, (tabs) => {
+          const existingTab = tabs.find(tab => tab.url && tab.url.includes(matchPattern));
+          
+          if (existingTab) {
+            savePromptForTab(existingTab.id, prompt, () => {
               // Highlight and focus the tab
               chrome.tabs.update(existingTab.id, { active: true }, () => {
                 chrome.windows.update(existingTab.windowId, { focused: true }, () => {
@@ -122,20 +131,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 });
               });
               sendResponse({ success: true, tabReused: true });
-            } else {
-              // Create new tab
-              createTab(targetUrl, () => {
-                sendResponse({ success: true, tabReused: false });
-              });
-            }
-          });
-        } else {
-          // Always create new tab
-          createTab(targetUrl, () => {
-            sendResponse({ success: true, tabReused: false });
-          });
-        }
-      });
+            });
+          } else {
+            // Create new tab
+            createTab(targetUrl, (newTab) => {
+              if (newTab) {
+                savePromptForTab(newTab.id, prompt, () => {
+                  sendResponse({ success: true, tabReused: false });
+                });
+              } else {
+                sendResponse({ success: false, error: 'Tab creation failed' });
+              }
+            });
+          }
+        });
+      } else {
+        // Always create new tab
+        createTab(targetUrl, (newTab) => {
+          if (newTab) {
+            savePromptForTab(newTab.id, prompt, () => {
+              sendResponse({ success: true, tabReused: false });
+            });
+          } else {
+            sendResponse({ success: false, error: 'Tab creation failed' });
+          }
+        });
+      }
     });
 
     return true; // Keep response channel open for async
@@ -169,6 +190,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     return true; // Keep response channel open for async
   }
+
+  if (message.action === 'getTabPrompt') {
+    const tabId = sender.tab ? sender.tab.id : null;
+    if (tabId) {
+      chrome.storage.local.get(['pendingInjections'], (data) => {
+        const pendingInjections = data.pendingInjections || {};
+        const prompt = pendingInjections[tabId.toString()];
+        sendResponse({ prompt });
+      });
+      return true; // Keep channel open for async
+    } else {
+      sendResponse({ prompt: null });
+    }
+  }
+
+  if (message.action === 'clearTabPrompt') {
+    const tabId = sender.tab ? sender.tab.id : null;
+    if (tabId) {
+      chrome.storage.local.get(['pendingInjections'], (data) => {
+        const pendingInjections = data.pendingInjections || {};
+        if (pendingInjections[tabId.toString()]) {
+          delete pendingInjections[tabId.toString()];
+          chrome.storage.local.set({ pendingInjections }, () => {
+            sendResponse && sendResponse({ success: true });
+          });
+        } else {
+          sendResponse && sendResponse({ success: false });
+        }
+      });
+      return true;
+    }
+  }
 });
 
 function getMatchPattern(domainKey) {
@@ -180,4 +233,12 @@ function getMatchPattern(domainKey) {
     case 'deepseek': return 'chat.deepseek.com';
     default: return domainKey;
   }
+}
+
+function savePromptForTab(tabId, promptText, callback) {
+  chrome.storage.local.get(['pendingInjections'], (data) => {
+    const pendingInjections = data.pendingInjections || {};
+    pendingInjections[tabId.toString()] = promptText;
+    chrome.storage.local.set({ pendingInjections }, callback);
+  });
 }
