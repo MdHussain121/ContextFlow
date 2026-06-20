@@ -26,7 +26,7 @@ function compressContext(chatHistory, mode = 'balanced') {
     };
   }
 
-  const allText = chatHistory.map(m => m.text || '').join('\n');
+  const allText = chatHistory.map(m => m.text).join('\n');
   
   // 1. Try to extract explicit markdown lists first
   const explicitObjectives = extractMarkdownList(allText, /###?\s*(?:Objectives|Goals|Aim)/i);
@@ -126,7 +126,16 @@ function extractMarkdownList(text, headerRegex) {
 }
 
 function deduplicate(arr) {
-  return [...new Set(arr)];
+  const seen = new Set();
+  const result = [];
+  for (const item of arr) {
+    const normalized = item.toLowerCase();
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      result.push(item);
+    }
+  }
+  return result;
 }
 
 if (typeof module !== 'undefined' && module.exports) {

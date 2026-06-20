@@ -168,7 +168,7 @@ async function runMatrixTests() {
               }
             }, target);
 
-            // Mock chrome storage for inject.js mapping
+            // Mock chrome storage and runtime for inject.js mapping
             await page.evaluate(({ trg, promptText }) => {
               // Setup chrome extension mock storage
               window.chrome = {
@@ -187,6 +187,13 @@ async function runMatrixTests() {
                   }
                 },
                 runtime: {
+                  sendMessage: (msg, callback) => {
+                    if (msg && msg.action === 'getTabPrompt') {
+                      if (callback) callback({ prompt: promptText });
+                    } else if (msg && msg.action === 'clearTabPrompt') {
+                      if (callback) callback({ success: true });
+                    }
+                  },
                   onMessage: {
                     addListener: () => {}
                   }

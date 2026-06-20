@@ -3,45 +3,91 @@
  * Runs in the context of the active chatbot tab to extract the conversation history.
  */
 (function() {
-  const url = window.location.href;
-  const path = window.location.pathname;
-  let platform = 'unknown';
-  let title = document.title || 'Untitled Conversation';
-  let messages = [];
-
-  // Ignore auth/login/share screens
-  if (path.includes('/login') || path.includes('/auth') || path.includes('/signup') || path.includes('/signin') || path.includes('/share')) {
-    return { platform, title, messages: [] };
-  }
-
-  // Determine platform
-  if (url.includes('chatgpt.com') || url.includes('bot=chatgpt')) {
-    platform = 'chatgpt';
-    messages = captureChatGPT();
-  } else if (url.includes('claude.ai') || url.includes('bot=claude')) {
-    platform = 'claude';
-    messages = captureClaude();
-  } else if (url.includes('gemini.google.com') || url.includes('bot=gemini')) {
-    platform = 'gemini';
-    messages = captureGemini();
-  } else if (url.includes('chat.mistral.ai') || url.includes('bot=mistral')) {
-    platform = 'mistral';
-    messages = captureMistral();
-  } else if (url.includes('chat.deepseek.com') || url.includes('bot=deepseek')) {
-    platform = 'deepseek';
-    messages = captureDeepSeek();
-  }
-
-  // Fallback if specific capture failed or returned empty
-  if (messages.length === 0) {
-    messages = captureFallback();
-  }
-
-  return {
-    platform,
-    title,
-    messages
+  const DEFAULT_REGISTRY = {
+    chatgpt: {
+      turnSelector: '[data-testid^="conversation-turn"]',
+      userIndicatorSelector: '[data-testid="user-turn"], .user-turn, img[alt="User"]',
+      textSelector: '.markdown, div.text-base, div.w-full'
+    },
+    claude: {
+      messageSelector: '[data-testid="user-message"], [data-testid="assistant-message"], .font-claude-message, .user-message, div.grid.grid-cols-1.gap-4',
+      userIndicatorSelector: '[data-testid="user-message"], .user-message'
+    },
+    gemini: {
+      messageSelector: 'user-query, .query-content, message-content, .query-text, div[class*="query-content"], div[class*="message-content"], div[class*="message_content"], div[class*="user-query"]',
+      userIndicatorSelector: 'user-query, .query-content, .query-text, .user-query, [class*="query-content"], [class*="query-text"], [class*="user-query"]'
+    },
+    mistral: {
+      messageSelector: 'div[class*="message-user"], div[class*="message-assistant"], div[class*="message_user"], div[class*="message_assistant"], div[class*="message-content"], div[class*="message_content"]',
+      userIndicatorSelector: '[class*="message-user"], [class*="message_user"], [class*="user"], [class*="Human"], [class*="sent"], [class*="self-end"]'
+    },
+    deepseek: {
+      messageSelector: 'div[class*="message"][class*="user"], div[class*="message"][class*="assistant"], div[class*="turn"], .ds-markdown',
+      userIndicatorSelector: '[class*="user"], [class*="right"], [class*="question"], [class*="sent"], [class*="self-end"]'
+    }
   };
+
+  function getSelectorRegistry() {
+    return new Promise((resolve) => {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(['selectorRegistry'], (data) => {
+          const custom = data.selectorRegistry || {};
+          const merged = {};
+          for (const key in DEFAULT_REGISTRY) {
+            merged[key] = {
+              ...DEFAULT_REGISTRY[key],
+              ...(custom[key] || {})
+            };
+          }
+          resolve(merged);
+        });
+      } else {
+        resolve(DEFAULT_REGISTRY);
+      }
+    });
+  }
+
+  return getSelectorRegistry().then(registry => {
+    const url = window.location.href;
+    const path = window.location.pathname;
+    let platform = 'unknown';
+    let title = document.title || 'Untitled Conversation';
+    let messages = [];
+
+    // Ignore auth/login/share screens
+    if (path.includes('/login') || path.includes('/auth') || path.includes('/signup') || path.includes('/signin') || path.includes('/share')) {
+      return { platform, title, messages: [] };
+    }
+
+    // Determine platform
+    if (url.includes('chatgpt.com') || url.includes('bot=chatgpt')) {
+      platform = 'chatgpt';
+      messages = captureChatGPT(registry.chatgpt);
+    } else if (url.includes('claude.ai') || url.includes('bot=claude')) {
+      platform = 'claude';
+      messages = captureClaude(registry.claude);
+    } else if (url.includes('gemini.google.com') || url.includes('bot=gemini')) {
+      platform = 'gemini';
+      messages = captureGemini(registry.gemini);
+    } else if (url.includes('chat.mistral.ai') || url.includes('bot=mistral')) {
+      platform = 'mistral';
+      messages = captureMistral(registry.mistral);
+    } else if (url.includes('chat.deepseek.com') || url.includes('bot=deepseek')) {
+      platform = 'deepseek';
+      messages = captureDeepSeek(registry.deepseek);
+    }
+
+    // Fallback if specific capture failed or returned empty
+    if (messages.length === 0) {
+      messages = captureFallback();
+    }
+
+    return {
+      platform,
+      title,
+      messages
+    };
+  });
 
   function isElementVisible(el) {
     if (!el) return false;
@@ -86,9 +132,11 @@
       });
       // Use textContent instead of attaching to live DOM
       // Walk text nodes to preserve line breaks from block elements
-      return extractTextWithBreaks(clone).trim();
+      const text = extractTextWithBreaks(clone).trim();
+      return text.replace(/\n{3,}/g, '\n\n');
     } catch (e) {
-      return element.textContent ? element.textContent.trim() : '';
+      const text = element.textContent ? element.textContent.trim() : '';
+      return text.replace(/\n{3,}/g, '\n\n');
     }
   }
 
@@ -115,17 +163,16 @@
   }
 
   // --- ChatGPT Extractor ---
-  // Selectors last verified: June 2026
-  function captureChatGPT() {
+  function captureChatGPT(config) {
     const list = [];
-    const turns = document.querySelectorAll('[data-testid^="conversation-turn"]');
+    const turns = document.querySelectorAll(config.turnSelector);
     if (turns.length === 0) return list;
 
     turns.forEach(turn => {
       if (!isElementVisible(turn)) return; // Skip hidden/cached turns
       
-      const isUser = turn.querySelector('[data-testid="user-turn"]') || turn.classList.contains('user-turn') || turn.innerHTML.includes('user-avatar') || turn.querySelector('img[alt="User"]');
-      const textEl = turn.querySelector('.markdown, div.text-base, div.w-full');
+      const isUser = turn.querySelector(config.userIndicatorSelector) || turn.classList.contains('user-turn') || turn.innerHTML.includes('user-avatar');
+      const textEl = turn.querySelector(config.textSelector);
       if (textEl) {
         const text = cleanMessageText(textEl);
         if (text) {
@@ -140,25 +187,20 @@
   }
 
   // --- Claude Extractor ---
-  // Selectors last verified: June 2026
-  function captureClaude() {
+  function captureClaude(config) {
     const list = [];
-    // Claude uses data-testid="user-message" and class .font-claude-message or data-testid="assistant-message"
-    const messageElements = document.querySelectorAll('[data-testid="user-message"], [data-testid="assistant-message"], .font-claude-message, .user-message, div.grid.grid-cols-1.gap-4');
-    
+    const messageElements = document.querySelectorAll(config.messageSelector);
     const uniqueElements = filterTopLevelElements(messageElements);
 
     uniqueElements.forEach(el => {
       if (!isElementVisible(el)) return; // Skip hidden/cached messages
       
       let role = 'assistant';
-      if (el.getAttribute('data-testid') === 'user-message' || el.classList.contains('user-message')) {
+      if ((el.matches && el.matches(config.userIndicatorSelector)) || (el.querySelector && el.querySelector(config.userIndicatorSelector)) || el.classList.contains('user-message')) {
         role = 'user';
-      } else if (el.getAttribute('data-testid') === 'assistant-message' || el.classList.contains('font-claude-message')) {
-        role = 'assistant';
       } else {
         // Try heuristic class check
-        if (el.className.includes('user')) role = 'user';
+        if (el.className && typeof el.className === 'string' && el.className.includes('user')) role = 'user';
       }
 
       const text = cleanMessageText(el);
@@ -171,29 +213,18 @@
   }
 
   // --- Gemini Extractor ---
-  // Selectors last verified: June 2026
-  function captureGemini() {
+  function captureGemini(config) {
     const list = [];
-    // User queries are in user-query or query-content, model responses in message-content
-    const elements = document.querySelectorAll('user-query, .query-content, message-content, .query-text, div[class*="query-content"], div[class*="message-content"], div[class*="message_content"], div[class*="user-query"]');
-    
+    const elements = document.querySelectorAll(config.messageSelector);
     const uniqueElements = filterTopLevelElements(elements);
 
     uniqueElements.forEach(el => {
-      const visible = isElementVisible(el);
-      const tagName = el.tagName.toLowerCase();
-
-      if (!visible) return; // Skip hidden/cached messages
+      if (!isElementVisible(el)) return; // Skip hidden/cached messages
       
       let role = 'assistant';
       const className = typeof el.className === 'string' ? el.className : '';
       
-      if (tagName === 'user-query' || 
-          className.includes('query-content') || 
-          className.includes('query-text') || 
-          className.includes('user-query') ||
-          el.classList.contains('query-content') ||
-          el.classList.contains('query-text')) {
+      if ((el.matches && el.matches(config.userIndicatorSelector)) || (el.querySelector && el.querySelector(config.userIndicatorSelector)) || className.includes('user-query') || el.classList.contains('query-content')) {
         role = 'user';
       }
       const text = cleanMessageText(el);
@@ -205,12 +236,9 @@
   }
 
   // --- Mistral Extractor ---
-  // Selectors last verified: June 2026
-  function captureMistral() {
+  function captureMistral(config) {
     const list = [];
-    // Mistral chat bubbles are usually divs with classes containing user/assistant
-    const bubbles = document.querySelectorAll('div[class*="message-user"], div[class*="message-assistant"], div[class*="message_user"], div[class*="message_assistant"], div[class*="message-content"], div[class*="message_content"]');
-    
+    const bubbles = document.querySelectorAll(config.messageSelector);
     const uniqueElements = filterTopLevelElements(bubbles);
 
     uniqueElements.forEach(el => {
@@ -222,6 +250,8 @@
       
       const isRightAligned = style.textAlign === 'right' || 
                              style.justifyContent === 'flex-end' || 
+                             (el.matches && el.matches(config.userIndicatorSelector)) ||
+                             (el.querySelector && el.querySelector(config.userIndicatorSelector)) ||
                              className.includes('user') || 
                              className.includes('Human') || 
                              className.includes('sent') || 
@@ -238,11 +268,9 @@
   }
 
   // --- DeepSeek Extractor ---
-  // Selectors last verified: June 2026
-  function captureDeepSeek() {
+  function captureDeepSeek(config) {
     const list = [];
-    const turns = document.querySelectorAll('div[class*="message"][class*="user"], div[class*="message"][class*="assistant"], div[class*="turn"], .ds-markdown');
-    
+    const turns = document.querySelectorAll(config.messageSelector);
     const uniqueElements = filterTopLevelElements(turns);
 
     uniqueElements.forEach(el => {
@@ -254,6 +282,8 @@
       
       const isRightAligned = style.textAlign === 'right' || 
                              style.justifyContent === 'flex-end' || 
+                             (el.matches && el.matches(config.userIndicatorSelector)) ||
+                             (el.querySelector && el.querySelector(config.userIndicatorSelector)) ||
                              className.includes('user') || 
                              className.includes('right') || 
                              className.includes('question') ||
@@ -275,7 +305,6 @@
     const list = [];
     // Find all message-like elements
     const elements = document.querySelectorAll('p, pre, li, div.text-base, div[class*="message"], div[class*="chat"], div[class*="bubble"], div[class*="markdown"]');
-    
     const uniqueElements = filterTopLevelElements(elements);
 
     uniqueElements.forEach(el => {
